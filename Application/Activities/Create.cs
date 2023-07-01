@@ -37,7 +37,8 @@ namespace Application.Activities
             public async Task<Result<Unit>> Handle(Command request, CancellationToken cancellationToken)
             {
                 // get the user that's making the request
-                var user = await _context.Users.FirstOrDefaultAsync(u => u.UserName == _userAccessor.GetUsername());
+                var user = await _context.Users
+                    .FirstOrDefaultAsync(u => u.UserName == _userAccessor.GetUsername(), cancellationToken: cancellationToken);
 
                 // create new attendee (i.e. join table) 
                 var attendee = new ActivityAttendee
@@ -52,11 +53,9 @@ namespace Application.Activities
                 
                 _context.Activities.Add(request.Activity);
 
-                var result = await _context.SaveChangesAsync() > 0;
+                var result = await _context.SaveChangesAsync(cancellationToken) > 0;
 
-                if (!result) return Result<Unit>.Failure("Failed to create activity");
-
-                return Result<Unit>.Success(Unit.Value);
+                return !result ? Result<Unit>.Failure("Failed to create activity") : Result<Unit>.Success(Unit.Value);
             }
         }
     }
