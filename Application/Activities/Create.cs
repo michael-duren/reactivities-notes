@@ -1,7 +1,9 @@
 using Application.Core;
+using Application.Interfaces;
 using Domain;
 using FluentValidation;
 using MediatR;
+using Microsoft.EntityFrameworkCore;
 using Persistence;
 
 namespace Application.Activities
@@ -16,10 +18,12 @@ namespace Application.Activities
         public class Handler : IRequestHandler<Command, Result<Unit>>
         {
             private readonly DataContext _context;
+            private readonly IUserAccessor _userAccessor;
 
-            public Handler(DataContext context)
+            public Handler(DataContext context, IUserAccessor userAccessor)
             {
                 _context = context;
+                _userAccessor = userAccessor;
             }
 
             public class CommandValidator : AbstractValidator<Command>
@@ -32,6 +36,20 @@ namespace Application.Activities
 
             public async Task<Result<Unit>> Handle(Command request, CancellationToken cancellationToken)
             {
+                // get the user that's making the request
+                var user = await _context.Users.FirstOrDefaultAsync(u => u.UserName == _userAccessor.GetUsername());
+
+                // create new attendee (i.e. join table) 
+                var attendee = new ActivityAttendee
+                {
+                    AppUser = user,
+                    Activity = request.Activity,
+                    IsHost = true
+                };
+                
+                // add attendee to the activity collection 
+                request.Activity.Attendees.Add(attendee);
+                
                 _context.Activities.Add(request.Activity);
 
                 var result = await _context.SaveChangesAsync() > 0;
